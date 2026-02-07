@@ -62,3 +62,4 @@ coverage/
 *.backup
 *.old
 *.bak
+.book-index.json

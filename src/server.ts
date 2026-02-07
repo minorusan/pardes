@@ -5,8 +5,15 @@ import { requestLogger } from './middleware/requestLogger';
 import healthRouter from './routes/health';
 import inspectRouter from './routes/inspect';
 import extractionRouter from './routes/extraction';
+import booksRouter from './routes/books';
+import genresRouter from './routes/genres';
+import statsRouter from './routes/stats';
+import languagesRouter from './routes/languages';
+import seriesRouter from './routes/series';
+import authorsRouter from './routes/authors';
 import { cacheService } from './services/cacheService';
 import { processManager } from './services/processManager';
+import { bookIndex } from './services/bookIndex';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
@@ -20,19 +27,48 @@ app.use(requestLogger);
 app.use('/health', healthRouter);
 app.use('/inspect', inspectRouter);
 app.use('/extraction', extractionRouter);
+app.use('/books', booksRouter);
+app.use('/genres', genresRouter);
+app.use('/stats', statsRouter);
+app.use('/languages', languagesRouter);
+app.use('/series', seriesRouter);
+app.use('/authors', authorsRouter);
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
     name: 'PARDES API',
-    version: '1.0.0',
+    version: '2.0.0',
     description: 'Paradise Library - A gateway to forbidden knowledge',
     endpoints: {
-      health: '/health - System health and extraction progress',
-      inspect: '/inspect - Security inspection of extracted cache',
-      extraction: '/extraction/progress - Detailed extraction progress',
-      // More endpoints will be added here
-    }
+      books: {
+        search: 'GET /books?q=<query> - Fuzzy search books',
+        byTitle: 'GET /books?title=<title> - Search by title',
+        byAuthor: 'GET /books?author=<author> - Search by author',
+        byGenre: 'GET /books?genre=<genre> - Filter by genre',
+        random: 'GET /books/random?count=10 - Random books for discovery',
+        top: 'GET /books/top?limit=20 - Top rated books',
+        getBook: 'GET /books/:id - Get book details + series + author info',
+        download: 'GET /books/:id/download - Download FB2 file',
+        read: 'GET /books/:id/read - Parsed chapters for reading',
+        content: 'GET /books/:id/content - Raw text excerpt'
+      },
+      genres: {
+        list: 'GET /genres - List all genres with counts',
+        books: 'GET /genres/:genre - Get books in genre'
+      },
+      series: {
+        list: 'GET /series - List all series with counts',
+        books: 'GET /series/:name - Get books in series (ordered)'
+      },
+      authors: {
+        books: 'GET /authors/:name - All books by author (grouped by series)'
+      },
+      languages: 'GET /languages - Available languages with counts',
+      stats: 'GET /stats - Index statistics',
+      health: 'GET /health - System health'
+    },
+    ready: bookIndex.isReady()
   });
 });
 
@@ -94,28 +130,25 @@ const startServer = async () => {
       console.log(`✨ Server ready - extraction running in background...\n`);
     });
 
-    // Extract book archives in BACKGROUND (non-blocking)
-    console.log('📦 Starting background extraction...');
-    cacheService.initialize()
-      .then((extractionStats) => {
-        logger.info(LogCategory.SYSTEM, 'Book extraction complete', extractionStats);
-        console.log(`\n✅ Extraction complete!`);
-        console.log(`📚 Extracted ${extractionStats.totalFiles} files from ${extractionStats.archives.length} archive(s)`);
-        console.log(`📊 Total size: ${Math.round(extractionStats.totalSize / 1024 / 1024)}MB`);
-
-        if (extractionStats.warnings.length > 0) {
-          console.log(`⚠️  ${extractionStats.warnings.length} warning(s) - check logs for details`);
-        }
-
+    // Initialize book index in BACKGROUND (non-blocking)
+    console.log('📚 Starting book index initialization...');
+    bookIndex.initialize()
+      .then(async () => {
+        const stats = await bookIndex.getStats();
+        logger.info(LogCategory.SYSTEM, 'Book index ready', stats);
+        console.log(`\n✅ Book index ready!`);
+        console.log(`📚 Indexed ${stats?.totalBooks || 0} books`);
+        console.log(`👤 ${stats?.totalAuthors || 0} authors`);
+        console.log(`🏷️  ${stats?.totalGenres || 0} genres`);
         console.log(`\n🎉 PARDES fully initialized!\n`);
       })
       .catch((error) => {
-        logger.error(LogCategory.SYSTEM, 'Background extraction failed', {
+        logger.error(LogCategory.SYSTEM, 'Book index initialization failed', {
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined
         });
-        console.error('\n❌ Extraction failed:', error.message);
-        console.log('⚠️  Server still running, but library may be incomplete\n');
+        console.error('\n❌ Index initialization failed:', error.message);
+        console.log('⚠️  Server still running, but search may not work\n');
       });
 
   } catch (error) {
