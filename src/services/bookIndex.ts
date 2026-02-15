@@ -6,8 +6,8 @@ import * as iconv from 'iconv-lite';
 import { Book, Author, SearchResult, SearchOptions, GenreStats, IndexStats } from '../types/book';
 import { logger, LogCategory } from '../logger/logger';
 
-const STATIC_DIR = path.join(process.cwd(), 'static', 'books');
-const INPX_FILE = path.join(STATIC_DIR, 'flibusta_fb2_local.inpx');
+const BOOKS_DIR = '/mnt/cache/library/extracted';
+const INPX_FILE = '/home/erkamen/pardes/static/books/flibusta_fb2_local.inpx';
 const INDEX_CACHE_FILE = path.join(process.cwd(), '.book-index.json');
 
 // Field delimiter in INP files (EOT character)
@@ -128,23 +128,11 @@ class BookIndexService {
 
     execSync(`unzip -o "${INPX_FILE}" -d "${tempDir}"`, { stdio: 'pipe' });
 
-    // Get list of folders we actually have
-    const availableFolders = new Set<string>();
-    const bookFolders = fs.readdirSync(STATIC_DIR).filter(f => f.startsWith('fb2-'));
-    bookFolders.forEach(f => availableFolders.add(f));
-
-    // Parse each .inp file that matches our folders
+    // Parse all .inp files (books are in flat directory)
     const inpFiles = fs.readdirSync(tempDir).filter(f => f.endsWith('.inp'));
 
     for (const inpFile of inpFiles) {
       const folderName = inpFile.replace('.inp', '');
-
-      // Only parse INP files for folders we actually have
-      if (!availableFolders.has(folderName) &&
-          !folderName.startsWith('d.fb2-')) { // delta files map to regular folders
-        continue;
-      }
-
       const content = fs.readFileSync(path.join(tempDir, inpFile), 'utf-8');
       this.parseInpFile(content, folderName);
     }
@@ -203,13 +191,6 @@ class BookIndexService {
 
     if (isNaN(id)) return null;
 
-    // Determine actual folder (delta files use different naming)
-    let actualFolder = folder;
-    if (folder.startsWith('d.')) {
-      // Find which regular folder contains this ID
-      actualFolder = this.findFolderForId(id) || folder;
-    }
-
     return {
       id,
       title,
@@ -222,29 +203,17 @@ class BookIndexService {
       date,
       language,
       rating: isNaN(rating!) ? undefined : rating,
-      folder: actualFolder
+      folder: 'extracted' // flat directory, not used
     };
   }
 
   private findFolderForId(id: number): string | null {
-    const folders = fs.readdirSync(STATIC_DIR)
-      .filter(f => f.startsWith('fb2-') && !f.startsWith('fb2-d'));
-
-    for (const folder of folders) {
-      const match = folder.match(/fb2-(\d+)-(\d+)/);
-      if (match) {
-        const start = parseInt(match[1]);
-        const end = parseInt(match[2]);
-        if (id >= start && id <= end) {
-          return folder;
-        }
-      }
-    }
+    // No longer used - books are in flat directory
     return null;
   }
 
   private bookFileExists(book: Book): boolean {
-    const filePath = path.join(STATIC_DIR, book.folder, `${book.id}.fb2`);
+    const filePath = path.join(BOOKS_DIR, `${book.id}.fb2`);
     return fs.existsSync(filePath);
   }
 
@@ -529,7 +498,7 @@ class BookIndexService {
     const book = await this.getBook(id);
     if (!book) return null;
 
-    const filePath = path.join(STATIC_DIR, book.folder, `${id}.fb2`);
+    const filePath = path.join(BOOKS_DIR, `${id}.fb2`);
     return fs.existsSync(filePath) ? filePath : null;
   }
 

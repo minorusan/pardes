@@ -1,19 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger, LogCategory } from '../logger/logger';
 
+// Paths that should not be logged on every hit
+const SILENT_PATHS = new Set(['/health']);
+
 /**
- * Middleware to log all incoming HTTP requests
+ * Middleware to log incoming HTTP requests.
+ * Skips noisy endpoints (health checks) to prevent log spam.
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
+  if (SILENT_PATHS.has(req.path)) {
+    next();
+    return;
+  }
+
   const startTime = Date.now();
 
   // Log request
-  logger.info(LogCategory.API, `Incoming request: ${req.method} ${req.path}`, {
+  logger.info(LogCategory.API, `${req.method} ${req.path}`, {
     method: req.method,
     path: req.path,
     query: req.query,
-    ip: req.ip,
-    userAgent: req.get('user-agent')
+    ip: req.ip
   });
 
   // Capture response
@@ -21,12 +29,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
     const duration = Date.now() - startTime;
     const logLevel = res.statusCode >= 400 ? 'error' : 'info';
 
-    logger[logLevel](LogCategory.API, `Request completed: ${req.method} ${req.path}`, {
-      method: req.method,
-      path: req.path,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`
-    });
+    logger[logLevel](LogCategory.API, `${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
   });
 
   next();

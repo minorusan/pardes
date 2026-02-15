@@ -10,20 +10,8 @@ const router = Router();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    logger.debug(LogCategory.API, 'Health check requested', {
-      ip: req.ip,
-      userAgent: req.get('user-agent')
-    });
-
     const sessionStart = logger.getSessionStart();
     const healthStatus = await systemStatsService.getHealthStatus(sessionStart);
-
-    logger.info(LogCategory.API, 'Health check completed', {
-      status: healthStatus.status,
-      cpuUsage: healthStatus.system.cpu.usage,
-      memoryUsage: healthStatus.system.memory.usagePercent
-    });
-
     res.json(healthStatus);
   } catch (error) {
     logger.error(LogCategory.API, 'Health check failed', {

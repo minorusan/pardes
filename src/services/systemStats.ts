@@ -42,8 +42,16 @@ export interface HealthStatus {
 class SystemStatsService {
   private servedBooksCount: number = 0;
   private extractedBooksCount: number = 0;
+  private cachedCpuUsage: number = 0;
+  private cpuCacheTime: number = 0;
+  private readonly CPU_CACHE_TTL_MS = 2000; // Cache CPU reading for 2 seconds
 
-  public getCPUUsage(): Promise<number> {
+  public async getCPUUsage(): Promise<number> {
+    const now = Date.now();
+    if (now - this.cpuCacheTime < this.CPU_CACHE_TTL_MS) {
+      return this.cachedCpuUsage;
+    }
+
     return new Promise((resolve) => {
       const startMeasure = this.cpuAverage();
 
@@ -52,6 +60,8 @@ class SystemStatsService {
         const idleDiff = endMeasure.idle - startMeasure.idle;
         const totalDiff = endMeasure.total - startMeasure.total;
         const percentageCPU = 100 - Math.floor((100 * idleDiff) / totalDiff);
+        this.cachedCpuUsage = percentageCPU;
+        this.cpuCacheTime = Date.now();
         resolve(percentageCPU);
       }, 100);
     });

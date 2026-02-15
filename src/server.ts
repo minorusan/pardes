@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Express } from 'express';
 import cors from 'cors';
 import { logger, LogCategory } from './logger/logger';
@@ -135,7 +136,11 @@ const startServer = async () => {
     bookIndex.initialize()
       .then(async () => {
         const stats = await bookIndex.getStats();
-        logger.info(LogCategory.SYSTEM, 'Book index ready', stats);
+        logger.info(LogCategory.SYSTEM, 'Book index ready', {
+          totalBooks: stats?.totalBooks,
+          totalAuthors: stats?.totalAuthors,
+          totalGenres: stats?.totalGenres
+        });
         console.log(`\n✅ Book index ready!`);
         console.log(`📚 Indexed ${stats?.totalBooks || 0} books`);
         console.log(`👤 ${stats?.totalAuthors || 0} authors`);
