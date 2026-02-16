@@ -1,0 +1,23 @@
+{
+  "name": "kbh-bot-host",
+  "version": "2.0.0",
+  "description": "Книги Без Хуйни - Telegram bot host for PARDES library",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "author": "minorusan",
+  "license": "ISC",
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "telegram": "^2.26.16",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3",
+    "ts-node": "^10.9.2"
+  }
+}
